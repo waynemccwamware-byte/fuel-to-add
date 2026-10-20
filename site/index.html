@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>How Much Fuel to Add?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#10141a;
+    --bg-panel:#1b222c;
+    --bezel:#2a323f;
+    --bezel-hi:#3a4454;
+    --amber:#f5a623;
+    --amber-dim:#7a5a1e;
+    --amber-glow:rgba(245,166,35,0.35);
+    --text-primary:#e7e4dc;
+    --text-muted:#8b93a1;
+    --teal:#3fa7a0;
+    --alert:#e0705f;
+    --indent:14px;
+    --fuel-indent:36px;
+    --avgas:#4d94f0;   /* 100LL blue */
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top, 0px);
+    padding-bottom:env(safe-area-inset-bottom, 0px);
+  }
+  *,*::before,*::after{ box-sizing:inherit; }
+  html{
+    background:var(--bg-deep);
+    overscroll-behavior:none;
+    scroll-padding-top:env(safe-area-inset-top, 0px);
+    color-scheme:dark;
+  }
+  body{
+    margin:0;
+    min-height:100vh;
+    overscroll-behavior:none;
+    background:radial-gradient(ellipse at 50% 0%, #171d26 0%, var(--bg-deep) 60%);
+    font-family:'IBM Plex Sans', sans-serif;
+    color:var(--text-primary);
+    padding:14px 12px 40px;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  .rig{ width:100%; max-width:640px; margin:0 auto; }
+
+  .title-row{
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom:2px; padding:0 4px;
+  }
+  .title-row h1{ font-size:19px; font-weight:600; margin:0; letter-spacing:0.01em; }
+  .title-row .ver{ font-size:11px; color:var(--text-muted); }
+
+  .purpose-line{
+    font-size:12.5px; color:var(--teal);
+    margin:4px 4px 10px; line-height:1.5;
+  }
+  .purpose-label{ color:var(--text-primary); }
+
+  .panel{ display:flex; flex-direction:column; gap:10px; }
+
+  .step{
+    display:grid; grid-template-columns:26px minmax(0,1fr); gap:10px;
+    padding:12px 14px;
+    background:var(--bg-panel);
+    border:1px solid var(--bezel-hi);
+    border-radius:10px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.03), 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .step-num{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--amber);
+    border:1px solid var(--amber-dim); border-radius:50%;
+    width:24px; height:24px; display:flex; align-items:center; justify-content:center; margin-top:2px;
+  }
+  .step-body h2{ font-size:13.5px; font-weight:600; margin:0 0 2px; letter-spacing:0.02em; }
+  .step-body p.hint{ font-size:12px; color:var(--text-muted); margin:0 0 8px; line-height:1.45; }
+
+  /* leg-count selector */
+  .seg{ display:inline-flex; border:1px solid var(--bezel-hi); border-radius:6px; overflow:hidden; }
+  .seg button{
+    background:var(--bg-deep); color:var(--text-muted); border:0; border-right:1px solid var(--bezel-hi);
+    padding:9px 0; min-width:48px; font:500 15px 'IBM Plex Mono', monospace; cursor:pointer;
+  }
+  .seg button:last-child{ border-right:0; }
+  .seg button.on{ background:rgba(245,166,35,0.15); color:var(--amber); }
+  .seg button:focus-visible{ outline:2px solid var(--amber); outline-offset:-2px; }
+  .legrow{ display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; }
+  .legbtns{ display:flex; flex-wrap:wrap; gap:8px; }
+
+  /* schedule rows */
+  .trow{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; align-items:center;
+    padding:3px 0;
+  }
+  .lbl{ font-size:13.5px; }
+  .lbl .sub{ color:var(--text-muted); font-size:11.5px; margin-left:4px; }
+  .val{ display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+  .trow .note-wrap{ grid-column:1 / -1; margin:0 0 2px calc(var(--indent) * 2); padding-left:10px; border-left:2px solid var(--bezel-hi); }
+  .legbody{ margin-left:var(--indent); }
+  .legbody .note-wrap{ margin-left:var(--indent); }
+  .trow.emph .lbl{ font-weight:600; }
+  /* fuel quantities: set apart from the time column, in avgas blue */
+  .trow.fuel .val{ margin-right:var(--fuel-indent); }
+  .trow.fuel .fld, .trow.fuel .calc{ color:var(--avgas); }
+  .trow.emph .calc{ font-size:16px; }
+
+  .calc{
+    font-family:'IBM Plex Mono', monospace; font-size:15px; color:var(--amber);
+    text-align:right; min-width:92px;
+  }
+  .calc .day{ display:block; font-size:10.5px; color:var(--text-muted); margin-top:1px; }
+
+  .fld{
+    background:var(--bg-deep); color:var(--text-primary);
+    border:1px solid var(--bezel-hi); border-radius:6px;
+    font:500 16px 'IBM Plex Mono', monospace;
+    padding:5px 10px; width:98px; text-align:right; outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .fld::placeholder{ color:#566070; }
+  .fld:focus{ border-color:var(--amber); box-shadow:0 0 0 2px var(--amber-glow); }
+  .fld.bad{ border-color:var(--alert); }
+  .fld.anchor{ width:132px; border-color:var(--amber); box-shadow:0 0 0 1px var(--amber-dim); }
+  .fld.note{
+    width:100%; text-align:left; font:400 16px 'IBM Plex Sans', sans-serif; padding:5px 10px;
+  }
+  .tag{ color:var(--amber); font-size:11.5px; margin-left:6px; font-weight:500; }
+
+  .leghead{
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+    margin-top:10px; padding:8px 0 2px; border-top:2px solid var(--amber-dim);
+  }
+  .leghead .legname{ font-size:19px; font-weight:600; color:var(--amber); letter-spacing:0.01em; }
+  .leghead .legroute{ font:500 12.5px 'IBM Plex Mono', monospace; color:var(--text-muted); }
+  .apt{
+    padding:6px 10px 8px; margin:4px 0; background:var(--bg-deep);
+    border:1px solid var(--bezel); border-radius:8px;
+  }
+  .apt .cap{ display:block; font-size:11.5px; color:var(--text-muted); margin-bottom:3px; }
+  .apt .line{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .fld.apt-id{ width:104px; text-align:left; letter-spacing:0.06em; font-weight:600; }
+  .apt .links{ display:flex; gap:14px; font-size:12.5px; white-space:nowrap; }
+
+  a{ color:var(--teal); text-decoration:none; }
+  a:hover{ text-decoration:underline; }
+  a.off{ color:#566070; pointer-events:none; }
+
+  .var{
+    font-family:'IBM Plex Mono', monospace; font-size:12.5px; min-width:52px; text-align:right;
+    color:var(--text-muted);
+  }
+  .var.over{ color:var(--amber); }
+  .var.under{ color:var(--teal); }
+
+  .actions{ display:flex; flex-wrap:wrap; gap:10px; }
+  .btn{
+    font:500 13px 'IBM Plex Sans', sans-serif; padding:10px 16px; border-radius:6px;
+    border:1px solid var(--bezel-hi); background:transparent; color:var(--text-muted); cursor:pointer;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .btn:hover{ color:var(--amber); border-color:var(--amber); }
+  .btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+  .btn.primary{ color:var(--amber); border-color:var(--amber-dim); background:rgba(245,166,35,0.08); }
+  .fine{ margin:10px 4px 0; font-size:11px; line-height:1.6; color:var(--text-muted); }
+  /* footer — same pattern as the other GeezerGeek Pilot apps */
+  footer.page-footer{ text-align:center; font-size:11px; color:var(--text-muted); margin-top:16px; }
+  .back-link{ margin-bottom:10px; }
+  .back-link a{
+    display:inline-block; background:var(--bezel); color:var(--amber); text-decoration:none;
+    border:1px solid var(--bezel-hi); border-radius:5px; padding:6px 14px; font-size:12px;
+  }
+  .back-link a:hover{ background:var(--bezel-hi); text-decoration:none; }
+  .credit-line{ margin-bottom:2px; }
+  .hit-counter{ margin-top:8px; font-size:11px; color:var(--text-muted); }
+  .share-btn{
+    display:inline-flex; align-items:center; gap:7px; margin-top:10px;
+    background:transparent; border:1px solid var(--bezel-hi); border-radius:20px; padding:8px 16px;
+    color:var(--text-muted); font-family:'IBM Plex Sans', sans-serif; font-size:12.5px; cursor:pointer;
+    transition:color .15s ease, border-color .15s ease;
+  }
+  .share-btn:hover{ color:var(--amber); border-color:var(--amber); }
+  .share-icon{ width:15px; height:15px; flex-shrink:0; }
+
+
+  /* fuel-to-add specifics */
+  .trow.fuel .lbl .unit{ color:var(--text-muted); font-size:11.5px; margin-left:4px; }
+  .res{ width:100%; border-collapse:collapse; margin-top:2px; }
+  .res th{ font:500 11.5px 'IBM Plex Sans', sans-serif; color:var(--text-muted); text-align:right; padding:0 0 4px; }
+  .res th:first-child{ text-align:left; }
+  .res td{ padding:5px 0; border-top:1px solid var(--bezel); font-size:13.5px; }
+  .res td.num{ font:500 17px 'IBM Plex Mono', monospace; color:var(--avgas); text-align:right; width:30%; }
+  .res tr.big td{ font-weight:600; }
+  .res tr.big td.num{ font-size:22px; }
+  .status{ margin-top:8px; font-size:12.5px; min-height:18px; }
+  .status.ok{ color:var(--teal); }
+  .status.warn{ color:var(--alert); }
+  .unitrow{ display:flex; align-items:center; gap:8px; margin:6px 0 6px; font-size:13.5px; cursor:pointer; user-select:none; width:fit-content; }
+  .unitrow input{ width:18px; height:18px; margin:0; accent-color:var(--amber); cursor:pointer; }
+  .uom{ font:500 12.5px 'IBM Plex Mono', monospace; color:var(--text-muted); min-width:22px; }
+  .row-actions{ display:flex; gap:10px; margin-top:10px; }
+  @media (max-width:480px){
+    body{ padding:10px 8px 32px; }
+    .step{ grid-template-columns:22px minmax(0,1fr); gap:8px; padding:10px 10px; }
+    .step-num{ width:20px; height:20px; font-size:11px; }
+    .fld{ width:86px; padding:7px 8px; }
+    .res tr.big td.num{ font-size:19px; }
+  }
+  @media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="rig">
+
+  <div class="title-row">
+    <h1>How Much Fuel to Add?</h1>
+    <span class="ver mono">what goes in the tanks?</span>
+  </div>
+  <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter the fuel you'll have after the current leg and the minimum you need for the next leg, alternate and reserve included. Get the fuel to add in gallons and liters, total and per side.</p>
+
+  <div class="panel">
+
+    <section class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h2>Fuel state</h2>
+        <label class="unitrow"><input type="checkbox" id="useL"> Enter in liters</label>
+        <div class="trow fuel">
+          <div class="lbl">Remaining <span class="unit">after current leg</span></div>
+          <div class="val"><input class="fld" id="rem" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Fuel remaining after current leg"><span class="uom" id="uRem">gal</span></div>
+        </div>
+        <div class="trow fuel emph">
+          <div class="lbl">Min req'd w/ Alt/Reserve <span class="unit">for next leg</span></div>
+          <div class="val"><input class="fld" id="min" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Minimum required for next leg including alternate and reserve"><span class="uom" id="uMin">gal</span></div>
+        </div>
+        <div class="row-actions">
+          <button class="btn" id="btnExample" type="button">Reload example</button>
+          <button class="btn" id="btnClear" type="button">Clear all</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h2>Fuel to add</h2>
+        <p class="hint">1 US gal = 3.785 L. Per side splits the total evenly between left and right tanks.</p>
+        <table class="res">
+          <thead><tr><th></th><th>Gallons</th><th>Liters</th></tr></thead>
+          <tbody>
+            <tr class="big"><td>Fuel to add</td><td class="num" id="addG">—</td><td class="num" id="addL">—</td></tr>
+            <tr><td>Per side</td><td class="num" id="sideG">—</td><td class="num" id="sideL">—</td></tr>
+          </tbody>
+        </table>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <p class="fine">Planning aid only. Check every fuel figure against your own flight planning, the POH and a visual check of the tanks.</p>
+
+  <footer class="page-footer">
+    <div class="back-link"><a href="https://geezer-geek-pilot-control-panel.netlify.app">&larr; Back to GeezerGeek Pilot Apps</a></div>
+    <div class="credit-line">Wayne McClelland, <a href="https://youtube.com/@GeezerGeekPilot" target="_blank" rel="noopener">GeezerGeek Pilot</a>, <a href="https://docs.google.com/document/d/1chfDa3JBCjsGykGjwrAFwOqMAS7d3_dIY9ieROLCIyU/edit?usp=sharing" target="_blank" rel="noopener">Reference Materials</a></div>
+    <div class="hit-counter" id="hitCounter"></div>
+    <button id="shareBtn" class="share-btn" type="button">
+      <svg class="share-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/>
+      </svg>
+      <span>Share this app with pilot friends</span>
+    </button>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const L_PER_GAL = 3.785411784;           // exact US gallon
+  const KEY = 'fuelToAdd.v1';
+  const isL = () => $('useL').checked;
+  const uName = () => isL() ? 'L' : 'gal';
+  const EXAMPLE = { rem:'12.0', min:'40.0' };
+
+  const num = s => { const t = String(s).trim(); if (t === '') return null; const n = Number(t); return isFinite(n) && n >= 0 ? n : NaN; };
+  const f1 = n => n.toFixed(1);
+
+  function calc(){
+    const r = num($('rem').value), m = num($('min').value);
+    $('rem').classList.toggle('bad', Number.isNaN(r));
+    $('min').classList.toggle('bad', Number.isNaN(m));
+    const st = $('status');
+    const blank = () => ['addG','addL','sideG','sideL'].forEach(id => $(id).textContent = '—');
+    if (r == null || m == null || Number.isNaN(r) || Number.isNaN(m)){
+      blank();
+      st.className = 'status' + ((Number.isNaN(r) || Number.isNaN(m)) ? ' warn' : '');
+      st.textContent = (Number.isNaN(r) || Number.isNaN(m)) ? 'Enter ' + (isL() ? 'liters' : 'gallons') + ' as a positive number.' : '';
+      return;
+    }
+    const diff = m - r;                                   // in the entry unit
+    if (diff <= 0){
+      ['addG','addL','sideG','sideL'].forEach(id => $(id).textContent = '0.0');
+      st.className = 'status ok';
+      st.textContent = diff === 0 ? 'Right at minimum; no fuel needed.' : 'No fuel needed; ' + f1(-diff) + ' ' + uName() + ' above minimum.';
+      return;
+    }
+    const add = isL() ? diff / L_PER_GAL : diff;          // gallons
+    const L   = isL() ? diff : diff * L_PER_GAL;          // liters
+    $('addG').textContent = f1(add);
+    $('addL').textContent = f1(L);
+    $('sideG').textContent = f1(add / 2);
+    $('sideL').textContent = f1(L / 2);
+    st.className = 'status'; st.textContent = '';
+  }
+
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify({ rem:$('rem').value, min:$('min').value, liters:isL() })); } catch(e){} }
+  function showUnit(){
+    $('uRem').textContent = $('uMin').textContent = uName();
+  }
+  // switching units converts whatever is already entered, so the answer doesn't change
+  function convertFields(toL){
+    ['rem','min'].forEach(id => {
+      const n = num($(id).value);
+      if (n != null && !Number.isNaN(n)) $(id).value = f1(toL ? n * L_PER_GAL : n / L_PER_GAL);
+    });
+  }
+  function setExample(){
+    $('rem').value = EXAMPLE.rem; $('min').value = EXAMPLE.min;
+    if (isL()) convertFields(true);
+  }
+  function load(){
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(KEY)); } catch(e){}
+    if (s && s.rem !== undefined){
+      $('useL').checked = !!s.liters;
+      $('rem').value = s.rem || ''; $('min').value = s.min || '';
+    } else {
+      $('useL').checked = false; setExample();
+    }
+    showUnit();
+  }
+
+  ['rem','min'].forEach(id => $(id).addEventListener('input', () => { calc(); save(); }));
+  $('btnExample').addEventListener('click', () => { setExample(); calc(); save(); });
+  $('useL').addEventListener('change', () => { convertFields(isL()); showUnit(); calc(); save(); });
+  $('btnClear').addEventListener('click', () => { $('rem').value = ''; $('min').value = ''; calc(); save(); $('rem').focus(); });
+
+  // ---- share button (same pattern as the other apps) ----
+  $('shareBtn').addEventListener('click', async () => {
+    const APP_URL = location.origin + location.pathname;
+    const data = { title: 'How Much Fuel to Add?', text: 'Fuel to add, in gallons and liters, total and per side.', url: APP_URL };
+    const label = $('shareBtn').querySelector('span');
+    const original = label.textContent;
+    if (navigator.share){ try { await navigator.share(data); } catch (e) {} return; }
+    try { await navigator.clipboard.writeText(APP_URL); label.textContent = 'Link copied to clipboard!'; }
+    catch (e) { window.location.href = 'mailto:?subject=' + encodeURIComponent(data.title) + '&body=' + encodeURIComponent(data.text + ' ' + APP_URL); return; }
+    setTimeout(() => { label.textContent = original; }, 2500);
+  });
+
+  // ---- open counter (Abacus counting API, abacus.jasoncameron.dev; fails silently if unreachable) ----
+  try {
+    fetch('https://abacus.jasoncameron.dev/hit/wamware/fuel-to-add').then(r => r.json()).then(d => {
+      const n = d && (d.value != null ? d.value : (d.count != null ? d.count : (d.hits != null ? d.hits : d.total)));
+      if (n != null && !isNaN(Number(n))) $('hitCounter').textContent = 'Opened ' + Number(n).toLocaleString() + ' times';
+    }).catch(() => {});
+  } catch (e) {}
+
+  load(); calc();
+})();
+</script>
+</body>
+</html>

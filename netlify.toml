@@ -1,0 +1,5 @@
+# How Much Fuel to Add? — deployed by Netlify from this GitHub repo (main branch).
+# No build step: Netlify publishes site/ as-is.
+[build]
+  publish = "site"
+  command = ""
