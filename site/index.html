@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- How Much Fuel to Add? v1.1 (19-Oct-2026): version label in the title row (was the tagline "what goes in the tanks?"); v1.0 = the 23-Sep-2026 build -->
+<!-- How Much Fuel to Add? v1.3 (21-Oct-2026): per-side gallons rounded up to whole gallons; total = 2 x per side; liters from the rounded gallons. v1.1 (19-Oct-2026): version label in the title row (was the tagline "what goes in the tanks?"); v1.0 = the 23-Sep-2026 build -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -242,7 +242,7 @@
 
   <div class="title-row">
     <h1>How Much Fuel to Add?</h1>
-    <span class="ver mono">v1.2</span>
+    <span class="ver mono">v1.3</span>
   </div>
   <p class="purpose-line"><span class="purpose-label">Purpose:</span> Enter the fuel you'll have after the current leg and the minimum you need for the next leg, alternate and reserve included. Get the fuel to add in gallons and liters, total and per side.</p>
 
@@ -272,12 +272,12 @@
       <div class="step-num">2</div>
       <div class="step-body">
         <h2>Fuel to add</h2>
-        <p class="hint">1 US gal = 3.785 L. Per side splits the total evenly between left and right tanks.</p>
+        <p class="hint">1 US gal = 3.785 L. Per side splits the fuel needed evenly between left and right tanks and rounds each side up to a whole gallon; the total is twice the per-side figure.</p>
         <table class="res">
           <thead><tr><th></th><th>Gallons</th><th>Liters</th></tr></thead>
           <tbody>
             <tr class="big"><td>Fuel to add</td><td class="num" id="addG">—</td><td class="num" id="addL">—</td></tr>
-            <tr><td>Per side</td><td class="num" id="sideG">—</td><td class="num" id="sideL">—</td></tr>
+            <tr><td>Per side (rounded up to whole gallons)</td><td class="num" id="sideG">—</td><td class="num" id="sideL">—</td></tr>
           </tbody>
         </table>
         <div class="status" id="status" role="status" aria-live="polite"></div>
@@ -326,17 +326,21 @@
     }
     const diff = m - r;                                   // in the entry unit
     if (diff <= 0){
-      ['addG','addL','sideG','sideL'].forEach(id => $(id).textContent = '0.0');
+      $('addG').textContent = $('sideG').textContent = '0';
+      $('addL').textContent = $('sideL').textContent = '0.0';
       st.className = 'status ok';
       st.textContent = diff === 0 ? 'Right at minimum; no fuel needed.' : 'No fuel needed; ' + f1(-diff) + ' ' + uName() + ' above minimum.';
       return;
     }
-    const add = isL() ? diff / L_PER_GAL : diff;          // gallons
-    const L   = isL() ? diff : diff * L_PER_GAL;          // liters
-    $('addG').textContent = f1(add);
-    $('addL').textContent = f1(L);
-    $('sideG').textContent = f1(add / 2);
-    $('sideL').textContent = f1(L / 2);
+    const need = isL() ? diff / L_PER_GAL : diff;         // gallons actually needed
+    // v1.3: round each side UP to a whole gallon (tiny epsilon so float noise like 14.0000001 doesn't bump a side);
+    // the total is two whole-gallon sides, and liters come from those rounded gallons.
+    const sideG = Math.max(1, Math.ceil(need / 2 - 1e-9));
+    const addG  = sideG * 2;
+    $('sideG').textContent = String(sideG);
+    $('addG').textContent  = String(addG);
+    $('sideL').textContent = f1(sideG * L_PER_GAL);
+    $('addL').textContent  = f1(addG * L_PER_GAL);
     st.className = 'status'; st.textContent = '';
   }
 
