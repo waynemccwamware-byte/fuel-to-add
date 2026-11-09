@@ -387,13 +387,16 @@
   $('useL').addEventListener('change', () => { convertFields(isL()); showUnit(); calc(); save(); });
   $('btnClear').addEventListener('click', () => { $('rem').value = ''; $('min').value = ''; calc(); save(); $('rem').focus(); });
 
-  // ---- open counter (Abacus counting API, abacus.jasoncameron.dev; fails silently if unreachable) ----
-  try {
-    fetch('https://abacus.jasoncameron.dev/hit/wamware/fuel-to-add').then(r => r.json()).then(d => {
-      const n = d && (d.value != null ? d.value : (d.count != null ? d.count : (d.hits != null ? d.hits : d.total)));
-      if (n != null && !isNaN(Number(n)) && $('hitCounter')) $('hitCounter').textContent = 'Opened ' + Number(n).toLocaleString() + ' times';
-    }).catch(() => {});
-  } catch (e) {}
+  // ---- open counter (App-Conventions §6b; Tally from 09-Nov-2026, was Abacus; fails silently) ----
+  // Opens counted on Abacus before the switch are carried as a fixed base on the Control Panel's stats page.
+  fetch('https://tally.yuki.sh/hits/wamware/fuel-to-add.json')
+    .then(r => r.json())
+    .then(d => {
+      const el = document.getElementById('hitCounter');
+      const n = d && d.visit;
+      if (el && typeof n === 'number') el.textContent = 'Opened ' + n.toLocaleString() + (n === 1 ? ' time' : ' times');
+    })
+    .catch(() => { /* counter is a nice-to-have, never block the app */ });
 
   load(); calc();
 })();
